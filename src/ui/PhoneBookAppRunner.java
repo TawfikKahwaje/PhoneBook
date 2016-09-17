@@ -19,27 +19,31 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.ImageViewBuilder;
 import javafx.scene.layout.*;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 
+import java.io.File;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.MongoClient;
 import com.sun.awt.SecurityWarning;
 
 import db.*;
 public class PhoneBookAppRunner extends Application {
-	public static final int APP_WIDTH = 220;
-    public static final int APP_HEIGHT = 300;
     
     public static String USER_ID ;
-    
     Stage window;
-    
     
     // Login Fields    
     Label msgLabel ;
@@ -50,8 +54,6 @@ public class PhoneBookAppRunner extends Application {
     Label tPasswordLabel;
     Button loginButton;
     Button signinButton;
-    
-
     
     VBox root2 ;
     HBox hBox;
@@ -79,13 +81,14 @@ public class PhoneBookAppRunner extends Application {
     
     ArrayList<Contact> contactsList;
     
-    public static void main(String[] args) throws UnknownHostException{
+    public static void main(String[] args) throws UnknownHostException{        
      Application.launch(args);
     }
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 		// TODO Auto-generated method stub
+
 		window = primaryStage;
 		window.setTitle("Phone Book");
 		loginRoot = createLoginRoot();
@@ -95,7 +98,6 @@ public class PhoneBookAppRunner extends Application {
 		
 	}
 
-	
 	private GridPane createLoginRoot() {
 		// TODO Auto-generated method stub
 		GridPane loginRoot = GridPaneBuilder.create()
@@ -187,55 +189,47 @@ public class PhoneBookAppRunner extends Application {
 
 	private void showHomePage() throws UnknownHostException {
 		// TODO Auto-generated method stub
+		// MenuBar for Profile and Import
+		MenuBar menuBar = new MenuBar();
+	    menuBar.prefWidthProperty().bind(window.widthProperty());
+	    Menu fileMenu = new Menu("File");
+	    MenuItem ProfileMenuItem = new MenuItem("Profile");
+	    MenuItem importContact = new MenuItem("Import");
+	    fileMenu.getItems().addAll(ProfileMenuItem,importContact);
+	    importContact.setOnAction(e -> importContact());
+	    ProfileMenuItem.setOnAction(e -> showProfile());
+	    menuBar.getMenus().addAll(fileMenu);
+	    
+	    // Filter for Search
 		filterField = new TextField();
 		filterField.setPromptText("Search");
 		
-		
 		contactsList= UserDB.getAllContactsByUserId(USER_ID);
-		
 		table = new TableView<>();
 		if(contactsList !=null){
-			//table.setItems(FXCollections.observableList(contactsList));
-			
-			// 1. Wrap the ObservableList in a FilteredList (initially display all data).
 	        filteredData = new FilteredList<>(FXCollections.observableList(contactsList), p -> true);
-	        
-	        // 2. Set the filter Predicate whenever the filter changes.
 	        filterField.textProperty().addListener((observable, oldValue, newValue) -> {
 	            filteredData.setPredicate(contact -> {
-	                // If filter text is empty, display all persons.
 	                if (newValue == null || newValue.isEmpty()) {
 	                    return true;
 	                }
-
-	                // Compare first name and last name of every person with filter text.
 	                String lowerCaseFilter = newValue.toLowerCase();
-
 	                if (contact.getName().toLowerCase().contains(lowerCaseFilter)) {
-	                    return true; // Filter matches first name.
+	                    return true; 
 	                } else if (contact.getEmail().toLowerCase().contains(lowerCaseFilter)) {
-	                    return true; // Filter matches last name.
+	                    return true; 
 	                } else if (contact.getPhoneNumber().toLowerCase().contains(lowerCaseFilter)) {
-	                    return true; // Filter matches last name.
+	                    return true; 
 	                }
-		             
-	                return false; // Does not match.
+	                return false;
 	            });
 	        });
-	        
-	        // 3. Wrap the FilteredList in a SortedList. 
 	        sortedData = new SortedList<>(filteredData);
-	        
-	        // 4. Bind the SortedList comparator to the TableView comparator.
 	        sortedData.comparatorProperty().bind(table.comparatorProperty());
-	        
-	        // 5. Add sorted (and filtered) data to the table.
 	        table.setItems(sortedData);
-
-	        
 		}
-			
 		
+		// Action for select contact
 		table.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
 		    if (newSelection != null ) {
 		    	Contact contact = table.getSelectionModel().getSelectedItem();
@@ -253,57 +247,84 @@ public class PhoneBookAppRunner extends Application {
 				});
 		    }
 		});
-		
 		table.getColumns().addAll(nameColumn, phoneNumberColumn, emailColumn);
-		
-		MenuBar menuBar = new MenuBar();
-	    menuBar.prefWidthProperty().bind(window.widthProperty());
-
-	    Menu fileMenu = new Menu("File");
-	    MenuItem ProfileMenuItem = new MenuItem("Profile");
-	    fileMenu.getItems().add(ProfileMenuItem);
-	    ProfileMenuItem.setOnAction(e -> {
-	    	VBox profileRoot = new VBox(10);
-	    	HBox hBoxProfile = new HBox();
-	    	Stage progileStage = new Stage();
-	    	progileStage.setScene(new Scene(profileRoot, 200, 200));
-	    	User user;
-	    	try {
-				user = UserDB.getUserById(USER_ID);
-				
-				Label usernameLabel = new Label("User Name :");
-				Label usernameValue = new Label(user.getUsername());
-				hBoxProfile.getChildren().addAll(usernameLabel,usernameValue);
-				
-				Button deleteUserButton = new Button("Delete User");
-				deleteUserButton.setOnAction(event ->{
-					try {
-						UserDB.deleteUserById(USER_ID);
-						System.out.println("User Deleted");
-						loginRoot = createLoginRoot();
-						window.setScene(new Scene(loginRoot, 300, 250));
-						progileStage.close();
-					} catch (UnknownHostException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
-				});
-				
-				profileRoot.getChildren().addAll(hBoxProfile,deleteUserButton);
-				progileStage.show();
-			} catch (UnknownHostException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-	    	
-	    });
-
-	    menuBar.getMenus().addAll(fileMenu);
-	    
 		
 		root2.getChildren().addAll(menuBar,filterField,table,hBox);
 		window.setScene(new Scene(root2, 610, 400));
 		window.show();
+	}
+
+	private void showProfile() {
+		// TODO Auto-generated method stub
+    	VBox profileRoot = new VBox(10);
+    	HBox hBoxProfile = new HBox();
+    	Stage progileStage = new Stage();
+    	progileStage.setScene(new Scene(profileRoot, 200, 200));
+    	User user;
+    	try {
+			user = UserDB.getUserById(USER_ID);
+			
+			Label usernameLabel = new Label("User Name :");
+			Label usernameValue = new Label(user.getUsername());
+			hBoxProfile.getChildren().addAll(usernameLabel,usernameValue);
+			
+			Button deleteUserButton = new Button("Delete User");
+			deleteUserButton.setOnAction(event ->{
+				try {
+					UserDB.deleteUserById(USER_ID);
+					System.out.println("User Deleted");
+					loginRoot = createLoginRoot();
+					window.setScene(new Scene(loginRoot, 300, 250));
+					progileStage.close();
+				} catch (UnknownHostException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			});
+			
+			profileRoot.getChildren().addAll(hBoxProfile,deleteUserButton);
+			progileStage.show();
+		} catch (UnknownHostException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+	}
+
+	private void importContact() {
+		// TODO Auto-generated method stub
+	    	FileChooser fileChooser = new FileChooser();
+	    	fileChooser.setTitle("Open Resource File");
+	    	
+	    	FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("TXT files (*.cvs)","*.cvs");
+	    	fileChooser.getExtensionFilters().add(extFilter);
+             
+             
+	    	File file = fileChooser.showOpenDialog(window);
+	    	String line = "";
+	    	if(file != null){
+	    		ArrayList<Contact> contacts = new ArrayList<>();
+	    		try ( BufferedReader br = new BufferedReader(new FileReader(file))) {
+
+	                while ((line = br.readLine()) != null) {
+
+	                    // use comma as separator
+	                    String[] contactsString = line.split(",");
+	                    Contact contact = new Contact(contactsString[0].replace("\"", ""),contactsString[1].replace("\"", ""),contactsString[2].replace("\"", ""));
+	                    contactsList.add(contact);
+	                    filteredData = new FilteredList<>(FXCollections.observableList(contactsList), p -> true);
+						sortedData = new SortedList<>(filteredData);
+						sortedData.comparatorProperty().bind(table.comparatorProperty());
+				        table.setItems(sortedData);
+	                    
+	                    UserDB.addContact(contact, USER_ID);
+	                }
+	            } catch (IOException ee) {
+	                ee.printStackTrace();
+	            }
+            }
+	    	else {
+	    		System.out.println("Not CVS");
+	    	}
 	}
 
 	private VBox createTableViewRoot() {
@@ -350,8 +371,6 @@ public class PhoneBookAppRunner extends Application {
 	private void addContact() {
 		// TODO Auto-generated method stub
 		{
-			
-			
 			root2.getChildren().remove(validationLabel);
 			Contact contact = new Contact(nameInput.getText(),phoneNumberInput.getText(),emailInput.getText());
 			if(validtionData(contact) == null)
